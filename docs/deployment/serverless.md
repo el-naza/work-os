@@ -10,6 +10,7 @@ Django API, and a stateful WebSocket/collaboration server:
 | `apps/space` | Vercel or Netlify                            | Static output when `VITE_STATIC_DEPLOY=1`; Docker keeps SSR by default   |
 | `apps/api`   | Vercel Python Functions, or a container host | Django WSGI API; Vercel adapter is included                              |
 | `apps/live`  | A long-running Node/Docker service           | Hocuspocus uses WebSockets and cannot run as a normal serverless request |
+| Celery worker/beat | Northflank Sandbox or Oracle Always Free VM | Queue consumers and scheduled tasks need long-lived processes             |
 | Postgres     | Neon Free or Supabase Free                   | Durable relational data and Django migrations                            |
 | Redis        | Upstash Redis Free                           | Sessions, cache, throttles, and magic-link state                         |
 | Uploads      | Cloudflare R2                                | Persistent S3-compatible object storage                                  |
@@ -251,7 +252,111 @@ Supply the same `VITE_API_BASE_URL`, `VITE_WEB_BASE_URL`,
 as for the web app. These variables are embedded into the browser bundle at
 build time; changing them requires a rebuild.
 
-## 5. Keep real-time collaboration separate
+## 5. Run the Celery worker and beat process
+
+The API function can enqueue work, but it cannot keep a Celery process alive.
+Run two long-lived commands outside Vercel:
+
+```text
+./bin/docker-entrypoint-worker.sh  -> celery -A plane worker -l info
+./bin/docker-entrypoint-beat.sh    -> celery -A plane beat -l info
+```
+
+Set `SERVERLESS_INLINE_TASKS=0` on the Vercel API once these processes are
+running. Otherwise the serverless API executes tasks inside the request and the
+external worker will have nothing to consume. The worker and beat process should
+share the same Postgres database, Redis broker, R2 credentials, and stable
+`SECRET_KEY` as the API.
+
+### Easiest no-cost option: Northflank Sandbox
+
+Northflank's current Sandbox tier advertises two free services with always-on
+compute. That maps neatly to one `plane-worker` service and one `plane-beat`
+service. Create both from this repository using `apps/api/Dockerfile.api` with
+`apps/api` as the Docker build context:
+
+| Service      | Start command                              | Public port |
+| ------------ | ------------------------------------------ | ----------- |
+| `plane-worker` | `./bin/docker-entrypoint-worker.sh`       | None        |
+| `plane-beat`   | `./bin/docker-entrypoint-beat.sh`         | None        |
+
+Use the worker/background-service type if the dashboard offers it; neither
+process needs a public URL. Add the following shared variables to both services
+(and add SMTP variables if tasks send email):
+
+```text
+DJANGO_SETTINGS_MODULE=plane.settings.production
+SECRET_KEY=<the same stable API secret>
+DATABASE_URL=<Neon pooled connection string>
+DATABASE_CONN_MAX_AGE=0
+REDIS_URL=<Upstash rediss:// connection string>
+CELERY_BROKER_URL=<the same Upstash rediss:// connection string>
+CELERY_RESULT_BACKEND=<the same Upstash rediss:// connection string>
+AWS_REGION=auto
+AWS_ACCESS_KEY_ID=<R2 key>
+AWS_SECRET_ACCESS_KEY=<R2 secret>
+AWS_S3_BUCKET_NAME=plane-uploads
+AWS_S3_ENDPOINT_URL=https://<account-id>.r2.cloudflarestorage.com
+USE_MINIO=0
+FILE_SIZE_LIMIT=5242880
+SIGNED_URL_EXPIRATION=3600
+```
+
+Run migrations once before starting the services. The existing entrypoint scripts
+wait for the database and migrations before launching Celery. Watch the worker
+logs for a successful connection to Redis and the beat logs for the scheduled
+`django-celery-beat` scheduler.
+
+Northflank's free allowance and regions can change, so confirm the current
+Sandbox limits before deployment. Two always-on services are enough for a demo,
+but not for high-volume task queues or production redundancy.
+
+### More reliable free infrastructure: Oracle Cloud Always Free VM
+
+If Northflank is unavailable or its free limits do not fit, create an Oracle
+Cloud Always Free Ubuntu VM. Oracle currently lists up to 2 OCPUs and 12 GB RAM
+of Ampere A1 compute for Always Free tenancies, plus 200 GB total block storage.
+Capacity can be unavailable in a region and idle instances can be reclaimed, so
+this is free infrastructure with self-managed operational risk.
+
+On the VM, build the API image and run two containers:
+
+```bash
+git clone https://github.com/el-naza/work-os.git /opt/work-os
+cd /opt/work-os
+
+# Create this file with chmod 600 and fill in real values.
+install -d -m 700 /etc/plane
+$EDITOR /etc/plane/worker.env
+chmod 600 /etc/plane/worker.env
+
+docker build -f apps/api/Dockerfile.api -t plane-api-worker apps/api
+
+docker run -d --name plane-worker --restart unless-stopped \
+  --env-file /etc/plane/worker.env \
+  plane-api-worker ./bin/docker-entrypoint-worker.sh
+docker run -d --name plane-beat --restart unless-stopped \
+  --env-file /etc/plane/worker.env \
+  plane-api-worker ./bin/docker-entrypoint-beat.sh
+```
+
+Do not use the repository's full `docker-compose.yml` for this small VM unless
+Postgres, Redis, and the other services are intentionally being self-hosted;
+that compose file is a complete local/container deployment. Keep Postgres on
+Neon and Redis on Upstash for the split topology.
+
+### Providers that are not genuinely free for this worker
+
+- Render has a free web-service type, but its own documentation says there is no
+  free instance type for Background Workers. A continuously running Render
+  worker therefore starts on a paid instance.
+- Koyeb's free instance is restricted to Web Services and explicitly cannot be a
+  Worker Service.
+- Railway's Free plan currently provides only $1 of monthly usage credit. It is
+  useful for a short trial or a stopped-on-demand process, but not a reliable
+  24/7 Celery worker at no cost.
+
+## 6. Keep real-time collaboration separate
 
 `apps/live` is an Express + Hocuspocus WebSocket server. Vercel and Netlify
 request functions are not a suitable home for a long-lived WebSocket process.
@@ -327,3 +432,8 @@ keeps the existing Django domain logic instead.
 - [Upstash Redis pricing](https://upstash.com/pricing)
 - [Cloudflare R2 pricing](https://developers.cloudflare.com/r2/pricing/)
 - [Resend pricing](https://resend.com/pricing)
+- [Northflank pricing and Sandbox](https://northflank.com/pricing)
+- [Oracle Cloud Always Free resources](https://docs.oracle.com/en-us/iaas/Content/FreeTier/resourceref.htm)
+- [Render background worker guidance](https://render.com/articles/cron-jobs-vs-background-workers-vs-durable-workflows-picking-the-right-async-pri)
+- [Koyeb instance limitations](https://www.koyeb.com/docs/reference/instances)
+- [Railway pricing plans](https://docs.railway.com/pricing/plans)

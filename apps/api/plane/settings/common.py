@@ -324,10 +324,15 @@ RABBITMQ_VHOST = os.environ.get("RABBITMQ_VHOST", "/")
 AMQP_URL = os.environ.get("AMQP_URL")
 
 # Celery Configuration
-if AMQP_URL:
-    CELERY_BROKER_URL = AMQP_URL
-else:
-    CELERY_BROKER_URL = f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{RABBITMQ_VHOST}"
+# CELERY_BROKER_URL lets a separately hosted worker use Redis (for example
+# Upstash rediss://) without overloading the legacy AMQP_URL variable. Keep
+# AMQP_URL as a backwards-compatible alias for existing RabbitMQ deployments.
+CELERY_BROKER_URL = (
+    os.environ.get("CELERY_BROKER_URL")
+    or AMQP_URL
+    or f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{RABBITMQ_VHOST}"
+)
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND") or REDIS_URL
 
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_SERIALIZER = "json"
