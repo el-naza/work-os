@@ -49,9 +49,9 @@ LOGGING = {
         "file": {
             "class": "plane.utils.logging.SizedTimedRotatingFileHandler",
             "filename": (
-                os.path.join(BASE_DIR, "logs", "plane-debug.log")  # noqa
+                os.path.join(LOG_DIR, "plane-debug.log")  # noqa
                 if DEBUG
-                else os.path.join(BASE_DIR, "logs", "plane-error.log")  # noqa
+                else os.path.join(LOG_DIR, "plane-error.log")  # noqa
             ),
             "when": "s",
             "maxBytes": 1024 * 1024 * 1,
