@@ -21,6 +21,26 @@ from .production import *  # noqa: F401,F403
 SERVERLESS_MODE = True
 DEBUG = False
 
+# Fail during cold start with an actionable configuration error instead of
+# accepting requests that cannot authenticate, reach the database, or persist
+# uploads. The Vercel build uses production settings, so these checks apply only
+# to the deployed request function.
+_REQUIRED_SERVERLESS_ENV = (
+    "SECRET_KEY",
+    "DATABASE_URL",
+    "REDIS_URL",
+    "CORS_ALLOWED_ORIGINS",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_S3_BUCKET_NAME",
+    "AWS_S3_ENDPOINT_URL",
+)
+_missing_serverless_env = [name for name in _REQUIRED_SERVERLESS_ENV if not os.environ.get(name)]
+if _missing_serverless_env:
+    raise ImproperlyConfigured(
+        "Missing required serverless environment variables: " + ", ".join(_missing_serverless_env)
+    )
+
 # These values are evaluated during settings import. Keep the default log path
 # writable on Vercel, where the deployed bundle is read-only.
 PLANE_LOG_DIR = os.environ.setdefault("PLANE_LOG_DIR", "/tmp/plane-logs")
