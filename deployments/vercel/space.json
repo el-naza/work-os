@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "corepack enable && pnpm install --frozen-lockfile",
+  "buildCommand": "VITE_STATIC_DEPLOY=1 pnpm turbo run build --filter=space...",
+  "outputDirectory": "apps/space/build/client",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}

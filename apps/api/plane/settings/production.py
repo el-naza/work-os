@@ -22,10 +22,12 @@ SCOUT_MONITOR = os.environ.get("SCOUT_MONITOR", False)
 SCOUT_KEY = os.environ.get("SCOUT_KEY", "")
 SCOUT_NAME = "Plane"
 
-LOG_DIR = os.path.join(BASE_DIR, "logs")  # noqa
+# Serverless filesystems are read-only outside of /tmp. The adapter sets this
+# variable for Vercel; regular container deployments keep the existing project
+# logs directory.
+LOG_DIR = os.environ.get("PLANE_LOG_DIR", os.path.join(BASE_DIR, "logs"))  # noqa
 
-if not os.path.exists(LOG_DIR):
-    os.makedirs(LOG_DIR)
+os.makedirs(LOG_DIR, exist_ok=True)
 
 # Logging configuration
 LOGGING = {
@@ -47,9 +49,9 @@ LOGGING = {
         "file": {
             "class": "plane.utils.logging.SizedTimedRotatingFileHandler",
             "filename": (
-                os.path.join(BASE_DIR, "logs", "plane-debug.log")  # noqa
+                os.path.join(LOG_DIR, "plane-debug.log")  # noqa
                 if DEBUG
-                else os.path.join(BASE_DIR, "logs", "plane-error.log")  # noqa
+                else os.path.join(LOG_DIR, "plane-error.log")  # noqa
             ),
             "when": "s",
             "maxBytes": 1024 * 1024 * 1,

@@ -6,8 +6,10 @@ Django==5.2.15
 djangorestframework==3.17.2
 # postgres
 psycopg==3.3.4
+# The binary distribution works on serverless builders without pg_config or
+# libpq development headers. psycopg-c requires compiling against PostgreSQL
+# headers and is not needed for Django's database backend.
 psycopg-binary==3.3.4
-psycopg-c==3.3.4
 dj-database-url==3.0.1
 # redis
 redis==5.0.4

@@ -1,0 +1,15 @@
+[build]
+command = "corepack enable && VITE_STATIC_DEPLOY=1 pnpm turbo run build --filter=space..."
+publish = "apps/space/build/client"
+
+[build.environment]
+NODE_VERSION = "22.22.3"
+PNPM_VERSION = "11.10.0"
+VITE_SPACE_BASE_PATH = "/"
+VITE_STATIC_DEPLOY = "1"
+
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
+force = false

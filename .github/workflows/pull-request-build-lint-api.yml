@@ -40,3 +40,44 @@ jobs:
         run: cd apps/api && pip install -r requirements.txt
       - name: Lint apps/api
         run: ruff check --fix apps/api
+
+  serverless-smoke:
+    name: Validate serverless API entrypoint
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    if: |
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.requested_reviewers != null
+    env:
+      DJANGO_SETTINGS_MODULE: plane.settings.serverless
+      SECRET_KEY: ci-only-serverless-secret
+      ALLOWED_HOSTS: api.example.com
+      CORS_ALLOWED_ORIGINS: https://app.example.com
+      DATABASE_URL: postgresql://plane:plane@127.0.0.1:5432/plane
+      REDIS_URL: redis://127.0.0.1:6379/0
+      AWS_ACCESS_KEY_ID: ci-only-access-key
+      AWS_SECRET_ACCESS_KEY: ci-only-secret
+      AWS_S3_BUCKET_NAME: ci-only-bucket
+      AWS_S3_ENDPOINT_URL: http://127.0.0.1:9000
+      AWS_REGION: auto
+      USE_MINIO: "0"
+      PLANE_LOG_DIR: /tmp/plane-logs
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12.x"
+          cache: pip
+          cache-dependency-path: apps/api/requirements.txt
+      - name: Install API dependencies
+        run: python -m pip install -r apps/api/requirements.txt
+      - name: Run Django checks
+        run: python apps/api/manage.py check
+      - name: Import the Vercel WSGI entrypoint
+        working-directory: apps/api
+        run: python -c "from api.index import application; assert callable(application)"
+      - name: Collect Django static files
+        working-directory: apps/api
+        run: ./vercel-build.sh
+        shell: bash

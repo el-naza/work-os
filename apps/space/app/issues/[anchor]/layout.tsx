@@ -28,13 +28,10 @@ interface IssueMetadata {
   cover_image?: string;
 }
 
-// Loader function runs on the server and fetches metadata
-export async function loader({ params }: Route.LoaderArgs) {
-  const { anchor } = params;
-
-  // Validate anchor before using in request (only allow alphanumeric, -, _)
+async function fetchMetadata(anchor: string | undefined) {
+  // Validate anchor before using it in a request (only allow alphanumeric, -, _).
   const ANCHOR_REGEX = /^[a-zA-Z0-9_-]+$/;
-  if (!ANCHOR_REGEX.test(anchor)) {
+  if (!anchor || !ANCHOR_REGEX.test(anchor)) {
     return { metadata: null };
   }
 
@@ -53,7 +50,16 @@ export async function loader({ params }: Route.LoaderArgs) {
   }
 }
 
-// Meta function uses the loader data to generate metadata
+// Static hosting has no runtime route loader. Fetch metadata in the browser so
+// the public space remains deployable to Netlify or a static Vercel project.
+export async function clientLoader({ params }: Route.ClientLoaderArgs) {
+  return fetchMetadata(params.anchor);
+}
+
+// Meta function uses client loader data after a static SPA has hydrated. The
+// default Docker build may still use SSR for the shell, but it intentionally
+// does not run a per-anchor loader so the same route module can also be built in
+// React Router SPA mode.
 export function meta({ loaderData }: Route.MetaArgs) {
   const metadata = loaderData?.metadata;
 

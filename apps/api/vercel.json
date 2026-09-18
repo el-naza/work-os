@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "./vercel-build.sh",
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 300,
+      "includeFiles": ["plane/**", "templates/**", "manage.py", "static/**"]
+    }
+  }
+}
