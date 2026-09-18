@@ -1,0 +1,14 @@
+[build]
+command = "corepack enable && pnpm turbo run build --filter=admin..."
+publish = "apps/admin/build/client"
+
+[build.environment]
+NODE_VERSION = "22.22.3"
+PNPM_VERSION = "11.10.0"
+VITE_ADMIN_BASE_PATH = "/"
+
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
+force = false

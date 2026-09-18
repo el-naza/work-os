@@ -2,6 +2,10 @@
 name = "Plane"
 version = "0.24.0"
 description = "Open-source project management that unlocks customer value"
+requires-python = ">=3.12,<3.15"
+
+[tool.vercel]
+entrypoint = "api.index:application"
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.

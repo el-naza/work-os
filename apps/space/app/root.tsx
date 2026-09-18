@@ -43,13 +43,6 @@ export const links: Route.LinksFunction = () => [
   },
 ];
 
-export const headers: Route.HeadersFunction = () => ({
-  "Referrer-Policy": "origin-when-cross-origin",
-  "X-Content-Type-Options": "nosniff",
-  "X-DNS-Prefetch-Control": "on",
-  "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
-});
-
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">

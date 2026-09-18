@@ -69,6 +69,13 @@ Getting started with Plane is simple. Choose the setup that works best for you:
 
 See [CONTRIBUTING](./CONTRIBUTING.md)
 
+## ☁️ Vercel / Netlify deployment
+
+A hybrid serverless deployment guide, including the Vercel Django adapter,
+free-tier Postgres/Redis/object storage setup, and the limits of WebSockets and
+Celery on serverless platforms, is available in
+[`docs/deployment/serverless.md`](./docs/deployment/serverless.md).
+
 ## ⚙️ Built with
 
 [![React Router](https://img.shields.io/badge/-React%20Router-CA4245?logo=react-router&style=for-the-badge&logoColor=white)](https://reactrouter.com/)

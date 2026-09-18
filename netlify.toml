@@ -1,0 +1,23 @@
+[build]
+command = "corepack enable && pnpm turbo run build --filter=web..."
+publish = "apps/web/build/client"
+
+[build.environment]
+NODE_VERSION = "22.22.3"
+PNPM_VERSION = "11.10.0"
+
+# React Router is deployed in SPA mode. Existing files (assets, manifests,
+# service worker, etc.) are served normally; application routes fall back to the
+# generated index.html.
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
+force = false
+
+[[headers]]
+for = "/*"
+[headers.values]
+X-Content-Type-Options = "nosniff"
+X-Frame-Options = "SAMEORIGIN"
+Referrer-Policy = "strict-origin-when-cross-origin"
